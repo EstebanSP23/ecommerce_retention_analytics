@@ -37,7 +37,7 @@ SELECT
 FROM raw.online_sales;
 
 
------------- stg_customers_data ------------
+------------ stg_customer_data ------------
 DROP TABLE IF EXISTS staging.stg_customer_data;
 
 CREATE TABLE staging.stg_customer_data AS
@@ -52,7 +52,7 @@ SELECT
     NULLIF(TRIM(location), '') AS location,
 
     tenure_months::INTEGER AS tenure_months
-FROM raw.customers_data;
+FROM raw.customer_data;
 
 
 ------------ stg_discount_coupon ------------
