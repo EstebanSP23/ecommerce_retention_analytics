@@ -36,7 +36,6 @@ SELECT
     END                               AS coupon_status
 FROM raw.online_sales;
 
-
 ------------ stg_customer_data ------------
 DROP TABLE IF EXISTS staging.stg_customer_data;
 
@@ -54,18 +53,31 @@ SELECT
     tenure_months::INTEGER AS tenure_months
 FROM raw.customer_data;
 
-
 ------------ stg_discount_coupon ------------
 DROP TABLE IF EXISTS staging.stg_discount_coupon;
 
 CREATE TABLE staging.stg_discount_coupon AS
 SELECT
     NULLIF(TRIM(month), '')            AS month_name,
+    CASE UPPER(TRIM(month))
+        WHEN 'JAN' THEN 1
+        WHEN 'FEB' THEN 2
+        WHEN 'MAR' THEN 3
+        WHEN 'APR' THEN 4
+        WHEN 'MAY' THEN 5
+        WHEN 'JUN' THEN 6
+        WHEN 'JUL' THEN 7
+        WHEN 'AUG' THEN 8
+        WHEN 'SEP' THEN 9
+        WHEN 'OCT' THEN 10
+        WHEN 'NOV' THEN 11
+        WHEN 'DEC' THEN 12
+        ELSE NULL
+    END AS month_num,
     NULLIF(TRIM(product_category), '') AS product_category,
     NULLIF(TRIM(coupon_code), '')      AS coupon_code,
     discount_pct::numeric              AS discount_pct
 FROM raw.discount_coupon;
-
 
 ------------ stg_tax_amount ------------
 DROP TABLE IF EXISTS staging.stg_tax_amount;
@@ -75,7 +87,6 @@ SELECT
     NULLIF(TRIM(product_category), '')        AS product_category,
     (REPLACE(TRIM(gst), '%', '')::numeric) / 100 AS gst_rate
 FROM raw.tax_amount;
-
 
 ------------ stg_marketing_spend ------------
 DROP TABLE IF EXISTS staging.stg_marketing_spend;
