@@ -62,8 +62,6 @@ WITH base AS (
         s.avg_price,
         s.delivery_charges,
         s.coupon_status,
-
-        -- Joinable month number from transaction_date
         EXTRACT(MONTH FROM s.transaction_date)::INT AS month_num
     FROM staging.stg_online_sales s
 )
@@ -79,21 +77,24 @@ SELECT
 
     t.gst_rate,
 
-    -- Apply discount only when coupon was used/clicked
     CASE
-        WHEN b.coupon_status IN ('Used', 'Clicked') THEN COALESCE(dc.discount_pct, 0) / 100
-        ELSE 0
+        WHEN b.coupon_status IN ('Used', 'Clicked')
+            THEN (COALESCE(dc.discount_pct, 0) / 100)::numeric(10,4)
+        ELSE 0::numeric(10,4)
     END AS discount_rate_applied,
 
-    -- Invoice value (line-level)
-    (
-        (b.quantity * b.avg_price)
-        * (1 - CASE
-                WHEN b.coupon_status IN ('Used', 'Clicked') THEN COALESCE(dc.discount_pct, 0) / 100
-                ELSE 0
-              END)
-        * (1 + COALESCE(t.gst_rate, 0))
-    ) + COALESCE(b.delivery_charges, 0) AS invoice_value
+    ROUND(
+        (
+            (b.quantity * b.avg_price)
+            * (1 - CASE
+                    WHEN b.coupon_status IN ('Used', 'Clicked')
+                        THEN COALESCE(dc.discount_pct, 0) / 100
+                    ELSE 0
+                  END)
+            * (1 + COALESCE(t.gst_rate, 0))
+        ) + COALESCE(b.delivery_charges, 0),
+        2
+    )::numeric(18,2) AS invoice_value
 
 FROM base b
 LEFT JOIN staging.stg_tax_amount t
@@ -103,22 +104,23 @@ LEFT JOIN staging.stg_discount_coupon dc
    AND dc.month_num = b.month_num;
 
 ALTER TABLE mart.fact_sales_line
-ADD CONSTRAINT pk_fact_sales_line PRIMARY KEY (transaction_id, product_sku);
+ADD CONSTRAINT pk_fact_sales_line
+PRIMARY KEY (transaction_id, product_sku);
+
+
 
 -- ---------- fact_orders ----------
-DROP TABLE IF EXISTS mart.fact_orders;
+DROP TABLE IF EXISTS mart.fact_orders CASCADE;
 
 CREATE TABLE mart.fact_orders AS
 SELECT
     transaction_id,
 
-    -- Deterministic customer assignment due to source inconsistency
     MIN(customer_id) AS customer_id,
-
     MIN(transaction_date) AS transaction_date,
 
-    SUM(invoice_value) AS order_revenue,
-    SUM(quantity)      AS items_qty,
+    ROUND(SUM(invoice_value), 2)::numeric(18,2) AS order_revenue,
+    SUM(quantity) AS items_qty,
     COUNT(DISTINCT product_sku) AS distinct_skus,
 
     COUNT(DISTINCT customer_id) AS customer_variants,
@@ -131,6 +133,5 @@ FROM mart.fact_sales_line
 GROUP BY transaction_id;
 
 ALTER TABLE mart.fact_orders
-ADD CONSTRAINT pk_fact_orders PRIMARY KEY (transaction_id);
-
-
+ADD CONSTRAINT pk_fact_orders
+PRIMARY KEY (transaction_id);
