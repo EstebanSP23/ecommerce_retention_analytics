@@ -120,3 +120,16 @@ SELECT
 FROM mart.fact_orders
 WHERE is_customer_id_conflicted = FALSE;
 
+-- ---------- Retention Trend ----------
+DROP VIEW IF EXISTS mart.vw_month1_retention_trend;
+
+CREATE VIEW mart.vw_month1_retention_trend AS
+SELECT
+    cohort_month,
+    TO_CHAR(cohort_month, 'Mon YYYY') AS cohort_month_label,
+    retention_pct
+FROM mart.vw_cohort_retention_rates
+WHERE month_index = 1
+ORDER BY cohort_month;
+
+
