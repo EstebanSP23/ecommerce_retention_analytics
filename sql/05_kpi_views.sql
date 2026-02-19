@@ -4,7 +4,9 @@
 -- ============================================================
 
 -- ---------- Monthly revenue + new vs existing customers ----------
-CREATE OR REPLACE VIEW mart.vw_monthly_revenue_new_vs_existing AS
+DROP VIEW IF EXISTS mart.vw_monthly_revenue_new_vs_existing;
+
+CREATE VIEW mart.vw_monthly_revenue_new_vs_existing AS
 WITH first_purchase AS (
     SELECT
         customer_id,
@@ -20,6 +22,7 @@ orders_enriched AS (
         o.transaction_date,
         o.order_revenue,
         DATE_TRUNC('month', o.transaction_date)::date AS month_start_date,
+        TO_CHAR(DATE_TRUNC('month', o.transaction_date)::date, 'Mon YYYY') AS month_label_en,
         TO_CHAR(o.transaction_date, 'YYYY-MM') AS year_month,
         CASE
             WHEN DATE_TRUNC('month', o.transaction_date) = DATE_TRUNC('month', fp.first_purchase_date)
@@ -33,14 +36,15 @@ orders_enriched AS (
 )
 SELECT
     month_start_date,
+    month_label_en,
     year_month,
     customer_type,
     COUNT(DISTINCT customer_id)    AS customers,
     COUNT(DISTINCT transaction_id) AS orders,
-    ROUND(SUM(order_revenue), 2) AS revenue,
-    ROUND(AVG(order_revenue), 2) AS avg_order_value
+    ROUND(SUM(order_revenue), 2)   AS revenue,
+    ROUND(AVG(order_revenue), 2)   AS avg_order_value
 FROM orders_enriched
-GROUP BY month_start_date, year_month, customer_type
+GROUP BY month_start_date, month_label_en, year_month, customer_type
 ORDER BY month_start_date, customer_type;
 
 -- ---------- Cohort retention (customer-based) ----------
