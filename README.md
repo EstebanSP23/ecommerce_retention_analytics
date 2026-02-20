@@ -1,6 +1,7 @@
 # Customer Retention & Revenue Sustainability Analysis  
 ### Production-Style SQL Analytics Pipeline (PostgreSQL + Power BI)
 
+---
 
 ## 1. Business Problem
 
@@ -23,6 +24,7 @@ This project analyzes customer behavior using a production-style SQL architectur
 
 The objective is to simulate how analytics systems are built in real production environments — not just create dashboards.
 
+---
 
 ## 2. Architecture Overview
 
@@ -42,7 +44,6 @@ The project follows a layered data architecture using PostgreSQL.
 - Month number standardization for joins
 
 ### Mart Layer (`mart` schema)
-
 Dimensional star schema designed for analytical consumption.
 
 #### Dimensions
@@ -60,17 +61,25 @@ Dimensional star schema designed for analytical consumption.
   - Grain: 1 row = 1 transaction_id
   - Aggregated from line-level fact
   - Deterministic revenue rollups
+  - Includes `is_customer_id_conflicted` flag for data integrity handling
+
+- `fact_marketing_daily`
+  - Grain: 1 row = 1 day per channel (Online/Offline)
+  - Long-format marketing spend (`spend` + `channel`) for BI flexibility
+  - Explicit numeric precision (`numeric(18,2)`)
 
 ### KPI Layer (SQL Views)
+Business-facing views built on top of mart tables (KPI logic centralized in SQL to avoid duplication in Power BI):
 
-Business-facing views built on top of mart tables:
-
-- `vw_monthly_revenue_new_vs_existing`
+- `vw_exec_kpis` *(operational executive KPIs)*
+- `vw_monthly_revenue_new_vs_existing` *(includes `month_start_date` + English `month_label_en`)*
 - `vw_cohort_retention`
-- `vw_cohort_retention_rates` (0–6 month window)
+- `vw_cohort_retention_rates` *(0–6 month window)*
+- `vw_month1_retention_trend` *(English month label + proper sorting)*
+- `vw_monthly_marketing_efficiency` *(monthly revenue vs spend + ROAS)*
+- `vw_marketing_summary` *(overall ROAS = total revenue / total spend)*
 
-All KPI logic is centralized in SQL to avoid duplication in Power BI.
-
+---
 
 ## 3. Dataset Description
 
@@ -86,8 +95,9 @@ Dataset scale:
 - 25,061 distinct transactions
 - 1,468 distinct customers
 - 20 product categories
-- 365 marketing spend records
+- 365 marketing spend records (daily online + offline)
 
+---
 
 ## 4. Data Grain & Modeling Decisions
 
@@ -106,14 +116,22 @@ This ensures:
 - Correct order-level rollups
 - Scalable dimensional modeling
 
+Marketing spend modeling:
+
+> 1 row = 1 day per channel (Online/Offline)
+
+This ensures:
+
+- Traceability to source daily spend
+- Clean monthly rollups for ROAS and efficiency trending
+
+---
 
 ## 5. Invoice Value Logic (Centralized in SQL)
 
 Invoice value is calculated at the line-item level:
 
-
-Invoice Value = ((Quantity × Avg_Price) × (1 - Discount_pct) × (1 + GST)) + Delivery_Charges
-
+`Invoice Value = ((Quantity × Avg_Price) × (1 - Discount_pct) × (1 + GST)) + Delivery_Charges`
 
 Business rules enforced:
 
@@ -126,6 +144,7 @@ Revenue totals reconciled after mart rebuild:
 
 **Total Revenue: 4,877,837.47**
 
+---
 
 ## 6. Data Quality Handling
 
@@ -135,36 +154,54 @@ To preserve order-level grain:
 
 - A deterministic rule was applied: `MIN(customer_id)`
 - A flag `is_customer_id_conflicted` identifies affected transactions
-- All KPI views exclude conflicted transactions where necessary
-- Revenue totals were reconciled post-adjustment
+- KPI views exclude conflicted transactions where necessary (especially customer-behavior metrics)
 
-This mirrors real-world production issue handling.
+Conflict counts (transactions):
 
+- `TRUE`: 1,319
+- `FALSE`: 23,742
+
+This mirrors real-world production issue handling (flagging, isolating, and controlling downstream impact).
+
+---
 
 ## 7. Implemented KPI Views
 
-### 1. Monthly Revenue (New vs Existing)
+### 1. Executive Operational KPIs
+- Total Revenue
+- Total Orders
+- Unique Customers
+- AOV  
+All sourced from `vw_exec_kpis` and **exclude conflicted transactions**.
 
+### 2. Monthly Revenue (New vs Existing)
 - Customer classification based on first purchase month
 - Revenue split by acquisition vs retention
 - Order count and AOV included
+- Uses `month_start_date` and an English month label for BI-friendly axes
 
-### 2. Cohort Retention Matrix
-
+### 3. Cohort Retention
 - Cohort defined by first purchase month
 - Retention measured as % of active customers
 - Window capped at 6 months for comparability
-- Long-format output optimized for BI pivot visuals
+- Month 1 retention trend view built for executive-level monitoring
 
+### 4. Marketing Efficiency (ROAS)
+- Daily spend modeled in mart (`fact_marketing_daily`)
+- Monthly revenue vs spend with ROAS (`vw_monthly_marketing_efficiency`)
+- Overall ROAS calculated correctly as **total revenue / total spend** (`vw_marketing_summary`)
+
+---
 
 ## 8. Power BI Integration
 
 Power BI connects directly to PostgreSQL (Import mode).
 
-- No business logic reimplemented in DAX
+- No business logic reimplemented in DAX (KPI logic centralized in SQL)
 - SQL views used for KPI consumption
 - Star schema relationships maintained
 - Numeric precision issues resolved at database layer
+- Month label sorting handled using “Sort by Column” (label sorted by date)
 
 This separation ensures:
 
@@ -173,8 +210,23 @@ This separation ensures:
 - Architectural clarity
 - Minimal BI-layer computation
 
+---
 
-## 9. Design Principles
+## 9. Dashboard Design (MVP)
+
+### Executive Summary Page (CEO-level)
+- KPI Cards: Revenue, Orders, Customers, AOV (`vw_exec_kpis`)
+- Revenue Trend: New vs Existing (2-line chart) (`vw_monthly_revenue_new_vs_existing`)
+- Retention Health: Month 1 retention trend (`vw_month1_retention_trend`)
+
+### Marketing Efficiency Page
+- KPI Card: Overall ROAS (`vw_marketing_summary`)
+- ROAS Trend (`vw_monthly_marketing_efficiency`)
+- Revenue vs Marketing Spend (combo chart) (`vw_monthly_marketing_efficiency`)
+
+---
+
+## 10. Design Principles
 
 This project emphasizes:
 
@@ -188,26 +240,31 @@ This project emphasizes:
 
 The goal is to demonstrate systems thinking, not just query writing.
 
+---
 
-## 10. Tools Used
+## 11. Tools Used
 
 - PostgreSQL 18
 - pgAdmin 4
-- Power BI Desktop (Live DB connection)
+- Power BI Desktop (Import mode)
 - GitHub
 
+---
 
-## 11. Project Status
+## 12. Project Status
 
 ✅ Raw ingestion completed  
 ✅ Staging layer implemented  
 ✅ Mart star schema implemented  
-✅ KPI views implemented  
-✅ Power BI connected live to PostgreSQL  
-🔄 Dashboard design in progress  
+✅ Marketing mart fact implemented (`fact_marketing_daily`)  
+✅ KPI views implemented (revenue, retention, marketing efficiency)  
+✅ Power BI connected to PostgreSQL  
+✅ MVP dashboard pages drafted (Executive Summary + Marketing Efficiency)  
+🔄 Additional analytical pages in progress  
 
+---
 
-## 12. Future Enhancements
+## 13. Future Enhancements
 
 - Predictive CLV modeling
 - Churn probability modeling
