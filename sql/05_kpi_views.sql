@@ -184,3 +184,15 @@ SELECT
 FROM mart.vw_cohort_retention_rates_1_to_6
 WHERE month_index = 1
 ORDER BY cohort_month;
+
+-- ---------- Retention Summary Month 1 ----------
+CREATE OR REPLACE VIEW mart.vw_month1_retention_summary AS
+SELECT
+    CASE
+        WHEN cohort_month BETWEEN '2019-01-01' AND '2019-06-30'
+            THEN 'First Half (Jan–Jun)'
+        ELSE 'Second Half (Jul–Nov)'
+    END AS period_group,
+    ROUND(AVG(retention_pct), 2) AS avg_month1_retention
+FROM mart.vw_cohort_month_1
+GROUP BY period_group;
