@@ -175,16 +175,6 @@ SELECT
     ) AS overall_roas
 FROM mart.vw_monthly_marketing_efficiency;
 
--- ---------- Cohort Month 1 ----------
-CREATE OR REPLACE VIEW mart.vw_cohort_month_1 AS
-SELECT
-    cohort_month,
-    TO_CHAR(cohort_month, 'Mon YYYY') AS cohort_month_label,
-    retention_pct
-FROM mart.vw_cohort_retention_rates_1_to_6
-WHERE month_index = 1
-ORDER BY cohort_month;
-
 -- ---------- Retention Summary Month 1 ----------
 CREATE OR REPLACE VIEW mart.vw_month1_retention_summary AS
 SELECT
