@@ -1,0 +1,16 @@
+# IDE
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Personal working docs (interview prep, drafts, notes)
+*.docx

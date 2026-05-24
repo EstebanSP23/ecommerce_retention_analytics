@@ -26,7 +26,7 @@ SELECT
     gender,
     location,
     tenure_months
-FROM staging.stg_customers_data;
+FROM staging.stg_customer_data;
 
 -- Optional: enforce uniqueness at the model level
 -- (useful recruiter signal, low effort)

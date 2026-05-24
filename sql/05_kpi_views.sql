@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- ---------- Monthly revenue + new vs existing customers ----------
-DROP VIEW IF EXISTS mart.vw_monthly_revenue_new_vs_existing;
+DROP VIEW IF EXISTS mart.vw_monthly_revenue_new_vs_existing CASCADE;
 
 CREATE VIEW mart.vw_monthly_revenue_new_vs_existing AS
 WITH first_purchase AS (
@@ -125,7 +125,9 @@ FROM mart.fact_orders
 WHERE is_customer_id_conflicted = FALSE;
 
 -- ---------- Retention Trend ----------
-DROP VIEW IF EXISTS mart.vw_month1_retention_trend;
+-- CASCADE because vw_month1_retention_summary depends on this view
+-- and gets recreated later in this same script.
+DROP VIEW IF EXISTS mart.vw_month1_retention_trend CASCADE;
 
 CREATE VIEW mart.vw_month1_retention_trend AS
 SELECT
@@ -184,7 +186,7 @@ SELECT
         ELSE 'Second Half (Jul–Nov)'
     END AS period_group,
     ROUND(AVG(retention_pct), 2) AS avg_month1_retention
-FROM mart.vw_cohort_month_1
+FROM mart.vw_month1_retention_trend
 GROUP BY period_group;
 
 -- ---------- Customer Lifetime Stats ----------
